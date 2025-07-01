@@ -16,7 +16,7 @@ by Python 3.7
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate as interp
-
+from matplotlib.collections import LineCollection
 
 class PostProc:
 
@@ -47,17 +47,6 @@ class PostProc:
         self.Fxgrip = accEnvDict["Fxgrip"]
         self.Fxdrive = accEnvDict["Fxdrive"]
 
-    def plotAccEnv(self):
-        plt.figure(1, figsize=(self.size/2, self.size/2))
-        plt.title("Acceleration Envelope")
-        plt.plot(self.ay, self.vxvect, 'c-', label="ay")
-        plt.plot(self.axacc, self.vxvect, 'm-', label="axacc")
-        plt.plot(self.axdec, self.vxvect, 'r-', label="axdec")
-        plt.legend()
-        plt.xlabel('acceleration [m/s^2]')
-        plt.ylabel('velocity [m/s]')
-        plt.grid(b=True, which='major', linestyle=':')
-        plt.ylim(0, self.vcarmax*1.2)
 
     def plotGGV(self, bPlotGGVfull=0):
         GGVacc = self.GGVacc
@@ -111,6 +100,15 @@ class PostProc:
         plt.ylabel('ay [m/s^2]')
         ax.set_zlabel('velocity [m/s]')
 
+    def AV(self):
+        GGVacc = self.GGVacc
+        GGVdec = self.GGVdec
+        GGVfull = self.GGVfull
+        axacc = self.axacc 
+        vxvect = self.vxvect
+        
+        plt.plot(vxvect, axacc)
+
     def plotAccEnvExtra(self):
         f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4,
                                                figsize=(self.size*1.5,
@@ -146,13 +144,38 @@ class PostProc:
         plt.ylabel('velocity [m/s]')
         plt.legend()
         plt.grid(b=True, which='major', linestyle=':')
-        plt.ylim(0, self.vcarmax*1.2)
+        # plt.ylim(0, self.vcarmax*1.2)
+        plt.ylim(0, 100)
         plt.xlim(0, max(self.dist))
+    
+    def plotLapTimeSimAxAcc(self):
+        plt.figure(4, figsize=(self.size, self.size/2))
+        plt.title("vxvect vs axacc and axdec")
+        plt.plot(self.vxvect, self.axacc, 'r-', linewidth=2, label="axacc",)
+        plt.plot(self.vxvect, self.axdec, 'g-', linewidth=2, label="axdec",)
+        plt.ylim(-50, 20)
+        # plt.xlabel('distance [m]')
+        # plt.ylabel('vxacc [m/s]')
+        plt.legend()
+        plt.grid(b=True, which='major', linestyle=':')
+        # plt.ylim(0, self.vcarmax*1.2)
+        # plt.xlim(0, max(self.dist))
+
+        plt.figure(6, figsize=(self.size, self.size/2))
+        plt.title("vxvect vs ay")
+        plt.plot(self.vxvect, self.ay, 'r-', linewidth=2, label="ay",)
+        # plt.plot(self.vxvect, self.ay, 'g-', linewidth=2, label="axdec",)
+        # plt.xlabel('distance [m]')
+        # plt.ylabel('vxacc [m/s]')
+        plt.legend()
+        plt.grid(b=True, which='major', linestyle=':')
+        # plt.ylim(0, self.vcarmax*1.2)
+        # plt.xlim(0, max(self.dist))
 
     def plotLapTimeSimExtra(self):
         plt.figure(3, (self.size, self.size/2))
         plt.title("Lap Time Simulation - Extra")
-        plt.plot(self.dist, self.vxcor, 'c-', label="vxcor")
+        plt.plot(self.dist, self.vxcor, 'c-', label="vxcor") 
         plt.plot(self.dist, self.vxacc, 'm-', label="vxacc")
         plt.plot(self.dist, self.vxdec, 'r-', label="vxdec")
         plt.plot(self.dist, self.vcar, 'b-', linewidth=2, label="vcar")
@@ -169,3 +192,65 @@ class PostProc:
         print("LapTime: ", self.laptime, "[s]")
         print("TopSpeed: ", np.round(self.vcarmax*3.6, 1), "[Km/h]")
         print("---------------------------")
+
+    def plotTrackMap(self, delta_s=10, cmap='viridis', linewidth=2):
+            """
+            Plot the track layout with color blending based on vehicle velocity.
+            Requires self.curv (curvature in 1/m), self.dist, and self.vcar arrays.
+            """
+
+            track = np.loadtxt("trackFiles/trackFile.txt")
+            dist = track[:, 0]
+            curv = track[:, 1]
+
+            # if self.curv is None:
+            #     raise ValueError("Curvature data (self.curv) not available to plot track map.")
+
+            # Initialize position arrays
+            n = len(self.dist)
+            x = np.zeros(n)
+            y = np.zeros(n)
+            theta = 0.0
+
+            # Integrate heading and position
+            for i in range(1, n):
+                k = curv[i]
+                ds = delta_s
+                dtheta = k * ds
+                theta_prev = theta
+                theta += dtheta
+                if k != 0:
+                    R = 1.0 / k
+                    x[i] = x[i-1] + R*(np.sin(theta) - np.sin(theta_prev))
+                    y[i] = y[i-1] + R*(np.cos(theta_prev) - np.cos(theta))
+                else:
+                    # Treat as straight
+                    x[i] = x[i-1] + ds * np.cos(theta_prev)
+                    y[i] = y[i-1] + ds * np.sin(theta_prev)
+
+            # Create line segments between points
+            points = np.vstack([x, y]).T
+            segments = np.stack([points[:-1], points[1:]], axis=1)
+
+            # Compute midpoint velocities and normalize for color
+            v_mid = 0.5 * (self.vcar[:-1] + self.vcar[1:])
+            norm = (v_mid - v_mid.min()) / (v_mid.max() - v_mid.min())
+
+            # Create a LineCollection with the normalized velocity map
+            lc =  LineCollection(segments, cmap=cmap, norm=plt.Normalize(0, 1), linewidths=linewidth)
+            lc.set_array(norm)
+
+            # Plot
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.add_collection(lc)
+            ax.set_aspect('equal', 'datalim')
+            ax.autoscale()
+            cbar = plt.colorbar(lc, ax=ax)
+            cbar.set_label('Velocity [m/s]')
+            plt.title('Track Map - Colored by Vehicle Velocity')
+            plt.xlabel('X [m]')
+            plt.ylabel('Y [m]')
+            plt.show()
+    
+  
+

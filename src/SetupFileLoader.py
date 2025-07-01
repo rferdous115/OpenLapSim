@@ -9,8 +9,8 @@ Below an example of setupFile.json (REMOUVE comments "#..." on real JSON file)
 {
     "setupName" : "Gp2Dummy",
     "mcar"		: 728,        #[Kg]; total car mass
-    "clt"		: 3.1,        #[100 pt.]; Lift coeffitien (-)
-    "cx"		: 1.0,        #[100 pt.]; Drag coeffitien
+    "clt"		: 3.1,        #[100 pt.]; Lift coefficient (-)
+    "cx"		: 1.0,        #[100 pt.]; Drag coefficient
     "afrcar"	: 1.0,        #[m2]; Frontal Area
     "mbrk"		: 7000,       #[Nm]; Max Braking Torque
     "gripx"		: 1.15,       #tyre friction coeff long
@@ -25,12 +25,13 @@ Below an example of setupFile.json (REMOUVE comments "#..." on real JSON file)
 }
 
 ---------------------------
-@autor: Davide Strassera
+@author: Davide Strassera
 @first release: 2019-12-21
 by Python 3.7
 ---------------------------
 
 """
+
 # Import Packages
 import json
 

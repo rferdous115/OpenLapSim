@@ -26,21 +26,29 @@ by Python 3.7
 import datetime
 import matplotlib.pyplot as plt
 import time
+import numpy as np
+# import dearpygui.dearpygui as dpg
+import math
+from math import sin, cos, log10
 
 # import packages (OLP)
 from AccEnvCalc import AccEnvCalc
+from AccEnvCalcBM import AccEnvCalcBM
 from LapTimeSimCalc import LapTimeSimCalc
 from PostProc import PostProc
 from SetupFileLoader import SetupFileLoader
-
+from BatchSetupFileLoader import BatchSetupFileLoader
 
 class RunOpenLapSim:
 
     def __init__(self, setupFileName, trackFileName,
-                 bExport, bPlot, bPlotExtra):
+                 bExport, bPlot, bPlotExtra, doBatch, batchWhich, batchParams):
         # inputs
         self.setupFileName = setupFileName
         self.trackFileName = trackFileName
+        self.doBatch = doBatch
+        self.batchWhich = batchWhich
+        self.batchParams = batchParams
         self.bExport = bExport
         self.bPlot = bPlot
         self.bPlotExtra = bPlotExtra
@@ -74,67 +82,140 @@ class RunOpenLapSim:
         # Computation time start
         tstart = time.time()
 
-        # SetupFile obj instantiation
-        s = SetupFileLoader(self.setupFilesPath + self.setupFileName)
-        s.loadJSON()
+        # If Batch Run is chosen
+        if self.doBatch == 1:
+            batchParamArray = np.arange(self.batchParams[0], self.batchParams[1]+self.batchParams[2], self.batchParams[2])
+            batchParamArray=batchParamArray.tolist()
+            print(f"batchParamArray before BatchSetupFileLoader: {batchParamArray}")
+            s = BatchSetupFileLoader(self.setupFilesPath + self.setupFileName, batchParamArray, batchWhich)
+            s.loadBatchJSON()
 
-        # Run Acceleration Envelope
-        aE = AccEnvCalc(s.setupDict)
-        aE.Run()
+            lapTimeArray = [0] * len(batchParamArray)
+            
+            # Run Acceleration Envelope
+            for elem, val in enumerate(batchParamArray):
+                print(f"elem {elem} -> {s.setupDictList[elem]}")
+                aE = AccEnvCalc(s.setupDictList[elem])
+                aE.Run()
+            
+                # Run Lap time Simulation
+                trackFile = (self.trackFilesPath+self.trackFileName)
+                l1 = LapTimeSimCalc(trackFile, aE.accEnvDict, 10)
+                l1.Run()
+                l2 = LapTimeSimCalc(trackFile, aE.accEnvDict,
+                                    l1.lapTimeSimDict["vxaccEnd"])
+                l2.Run()
 
-        # Run Lap time Simulation
-        trackFile = (self.trackFilesPath+self.trackFileName)
-        l1 = LapTimeSimCalc(trackFile, aE.accEnvDict, 10)
-        l1.Run()
-        l2 = LapTimeSimCalc(trackFile, aE.accEnvDict,
-                            l1.lapTimeSimDict["vxaccEnd"])
-        l2.Run()
+                # set output channels from simulation for Export
+                vcar = l2.lapTimeSimDict["vcar"]  # car speed [m/s]
+                dist = l2.lapTimeSimDict["dist"]  # circuit dist [m]
 
-        # set output channels from simulation for Export
-        vcar = l2.lapTimeSimDict["vcar"]  # car speed [m/s]
-        dist = l2.lapTimeSimDict["dist"]  # circuit dist [m]
+                # export
+                if self.bExport == 1:
+                    RunOpenLapSim.createExportSimFile(vcar, dist, self.exportFilesPath)
 
-        # export
-        if self.bExport == 1:
-            RunOpenLapSim.createExportSimFile(vcar, dist, self.exportFilesPath)
+                # Computation time end
+                tend = time.time()
+                tcomp = round(tend - tstart, 1)
+                print("Computational time: ", tcomp)
 
-        # Computation time end
-        tend = time.time()
-        tcomp = round(tend - tstart, 1)
-        print("Computational time: ", tcomp)
+                # Post Processing
+        
+                pP = PostProc(aE.accEnvDict, l2.lapTimeSimDict)
+                lapTimeArray[elem] = pP.laptime
+                print(f"LapTime {elem}: {lapTimeArray[elem]}")
+                pP.printData()
+                if self.bPlot == 1:
+                    # pP.plotAccEnv()
+                    pP.plotGGV()
+                    pP.plotLapTimeSim()
+                if self.bPlotExtra == 1:
+                    pP.plotLapTimeSimExtra()
+                    pP.plotAccEnvExtra()
+                plt.show()  # plot all figure once at the end
 
-        # Post Processing
-        pP = PostProc(aE.accEnvDict, l2.lapTimeSimDict)
-        pP.printData()
-        if self.bPlot == 1:
-            # pP.plotAccEnv()
-            pP.plotGGV()
-            pP.plotLapTimeSim()
-        if self.bPlotExtra == 1:
-            pP.plotLapTimeSimExtra()
-            pP.plotAccEnvExtra()
-        plt.show()  # plot all figure once at the end
+                plt.plot(batchParamArray, lapTimeArray, 'bo')
+                plt.xlabel(f"{batchWhich} (kg)")
+                plt.ylabel("laptime (s)")
+                plt.title(f"{batchWhich} vs laptime")
 
-        # output values
-        self.laptime = l2.lapTimeSimDict["laptime"]
-        self.vcarmax = l2.lapTimeSimDict["vcarmax"]
-        self.tcomp = tcomp
+                # output values
+                self.laptime = l2.lapTimeSimDict["laptime"]
+                self.vcarmax = l2.lapTimeSimDict["vcarmax"]
+                self.tcomp = tcomp
+
+                print(f"Lap Times: {lapTimeArray}")
+
+        else:
+            # SetupFile obj instantiation
+            s = SetupFileLoader(self.setupFilesPath + self.setupFileName)
+            s.loadJSON()
+
+            # Run Acceleration Envelope
+            aE = AccEnvCalc(s.setupDict)
+            aE.Run()
+
+            # Run Lap time Simulation
+            trackFile = (self.trackFilesPath+self.trackFileName)
+            l1 = LapTimeSimCalc(trackFile, aE.accEnvDict, 10)
+            l1.Run()
+            l2 = LapTimeSimCalc(trackFile, aE.accEnvDict,
+                                l1.lapTimeSimDict["vxaccEnd"])
+            l2.Run()
+
+            # set output channels from simulation for Export
+            vcar = l2.lapTimeSimDict["vcar"]  # car speed [m/s]
+            dist = l2.lapTimeSimDict["dist"]  # circuit dist [m]
+
+            # export
+            if self.bExport == 1:
+                RunOpenLapSim.createExportSimFile(vcar, dist, self.exportFilesPath)
+
+            # Computation time end
+            tend = time.time()
+            tcomp = round(tend - tstart, 1)
+            print("Computational time: ", tcomp)
+
+            # Post Processing
+
+            pP = PostProc(aE.accEnvDict, l2.lapTimeSimDict)
+            pP.printData()
+            if self.bPlot == 1:
+                # pP.plotAccEnv()
+                pP.plotGGV()
+                pP.plotLapTimeSim()
+                pP.plotLapTimeSimAxAcc()
+                pP.plotTrackMap()
+            if self.bPlotExtra == 1:
+                pP.plotLapTimeSimExtra()
+                pP.plotAccEnvExtra()
+                pP.AV()
+            plt.show()  # plot all figure once at the end
+
+            # output values
+            self.laptime = l2.lapTimeSimDict["laptime"]
+            self.vcarmax = l2.lapTimeSimDict["vcarmax"]
+            self.tcomp = tcomp
 
 # ----------------------------------------------------------------------------
 
 
 if __name__ == '__main__':
 
-    # SetupFile.json
+    # SetupFile.json 
     setupFileName = "SetupFile.json"
-    # TrackFile.txt
+    # TrackFile.txt  
     trackFileName = "TrackFile.txt"
+    # Batch Run 
+    doBatch = 0
+    batchWhich = "mcar" #choose out of mcar, clt, cx, afrcar, mbrk, gripx, gripy, loadEff, rtyre, reff, rho. No array parameters for now. 
+    batchParams = [720, 740, 2] #min, max, step
     # Additional Options
-    bExport = 1
-    bPlot = 1
-    bPlotExtra = 0
+    bExport = 1  
+    bPlot = 1 
+    bPlotExtra = 1 
 
     # object instantiation
     runOpenLapSim = RunOpenLapSim(setupFileName, trackFileName,
-                                  bExport, bPlot, bPlotExtra)
+                                  bExport, bPlot, bPlotExtra, doBatch, batchWhich, batchParams)
     runOpenLapSim.run()

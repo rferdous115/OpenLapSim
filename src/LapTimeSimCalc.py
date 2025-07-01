@@ -146,6 +146,7 @@ class LapTimeSimCalc:
 
         laptime = np.round(max(time), 3)
         vcarmax = np.round(max(vcar), 3)
+        # print(f"vcarmax: {vcarmax}")
 
         self.lapTimeSimDict = {
             "vcar": vcar,
