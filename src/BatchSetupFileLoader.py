@@ -53,16 +53,16 @@ class BatchSetupFileLoader:
         # with open(self.setupFileName) as f:
         #     data = json.load(f)
 
-        for elem, val in enumerate(self.batchParamArray):
+        for key, val in enumerate(self.batchParamArray):
             with open(self.setupFileName) as f:
                 data = json.load(f)
             data[self.batchWhich] = val
             batch_file_name_list = list(str(self.setupFileName))
-            batch_file_name_list.insert(-5, str(elem))
+            batch_file_name_list.insert(-5, str(key))
             batch_file_name = ''.join(batch_file_name_list)
             print(batch_file_name)
             self.batchWriteJSON(data, batch_file_name)
-            self.setupDictList[elem] = data
+            self.setupDictList[key] = data
             
         print(self.setupDictList)
         # set setupDict
@@ -74,7 +74,7 @@ class BatchSetupFileLoader2:
         self.setupFileName = setupFileName
         self.setupDict = {}
         self.param_list = param_list
-        self.setupDictList = [0] * len(self.batchParamArray)
+        self.setupDictList = [0] * len(self.param_list[0])
 
     def batchWriteJSON(self, data, filename):
         with open(filename, "w") as f:
@@ -84,18 +84,22 @@ class BatchSetupFileLoader2:
         #load json
         # with open(self.setupFileName) as f:
         #     data = json.load(f)
+        i = 0
         for param in self.param_list:
-            for elem, val in param:
-                for v in val:
-                    with open(self.setupFileName) as f:
-                        data = json.load(f)
-                    data[param[elem]] = v
-                    batch_file_name_list = list(str(self.setupFileName))
-                    batch_file_name_list.insert(-5, str(elem))
-                    batch_file_name = ''.join(batch_file_name_list)
-                    print(batch_file_name)
-                    self.batchWriteJSON(data, batch_file_name)
-                    self.setupDictList[elem] = data
+            print(f"param {param}")
+            for key, val in param.items():
+                # for v in val:
+                with open(self.setupFileName) as f:
+                    data = json.load(f)
+                print(f"Inputting {key} with vals {val}")
+                data[key] = val
+                batch_file_name_list = list(str(self.setupFileName))
+                batch_file_name_list.insert(-5, str(i))
+                batch_file_name = ''.join(batch_file_name_list)
+                # print(batch_file_name)
+                self.batchWriteJSON(data, batch_file_name)
+                self.setupDictList[key] = data
+                i += 1
                 
                     # print(self.setupDictList)
                     # set setupDict

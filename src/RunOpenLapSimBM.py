@@ -47,13 +47,14 @@ from BatchSetupFileLoader import BatchSetupFileLoader2
 class RunOpenLapSim:
 
     def __init__(self, setupFileName, trackFileName,
-                 bExport, bPlot, bPlotExtra, doBatch, batchWhich, batchParams):
+                 bExport, bPlot, bPlotExtra, doBatch, paramList):
         # inputs
         self.setupFileName = setupFileName
         self.trackFileName = trackFileName
         self.doBatch = doBatch
         self.batchWhich = batchWhich
         self.batchParams = batchParams
+        self.paramList = paramList
         self.bExport = bExport
         self.bPlot = bPlot
         self.bPlotExtra = bPlotExtra
@@ -89,13 +90,16 @@ class RunOpenLapSim:
 
         # If Batch Run is chosen
         if self.doBatch == 1:
-            batchParamArray = np.arange(self.batchParams[0], self.batchParams[1]+self.batchParams[2], self.batchParams[2])
-            batchParamArray=batchParamArray.tolist()
-            print(f"batchParamArray before BatchSetupFileLoader: {batchParamArray}")
-            s = BatchSetupFileLoader(self.setupFilesPath + self.setupFileName, batchParamArray, batchWhich)
+            # batchParamArray = np.arange(self.batchParams[0], self.batchParams[1]+self.batchParams[2], self.batchParams[2])
+            # batchParamArray=batchParamArray.tolist()
+            # print(f"batchParamArray before BatchSetupFileLoader: {batchParamArray}")
+            # s = BatchSetupFileLoader(self.setupFilesPath + self.setupFileName, batchParamArray, batchWhich)
+            # s.loadBatchJSON()
+
+            s = BatchSetupFileLoader2(self.setupFilesPath + self.setupFileName, self.paramList)
             s.loadBatchJSON()
 
-            lapTimeArray = [0] * len(batchParamArray)
+            # lapTimeArray = [0] * len(batchParamArray)
             
             # Run Acceleration Envelope
             for elem, val in enumerate(batchParamArray):
@@ -239,13 +243,11 @@ if __name__ == '__main__':
         'cx':   [0.30, 0.35]
     }
 
-    param_list = make_param_grid(grid_dict) # list of dictionaries
-    print(param_list) # 
+    paramList = make_param_grid(grid_dict) # list of dictionaries
+    print(paramList) # 
 
     # Populate new JSONS
-    s = BatchSetupFileLoader2("self.setupFilesPath" + setupFileName, param_list)
-    
-
+    s = BatchSetupFileLoader2("self.setupFilesPath" + setupFileName, paramList)
 
 
     # Additional Options
@@ -255,5 +257,5 @@ if __name__ == '__main__':
 
     # object instantiation
     runOpenLapSim = RunOpenLapSim(setupFileName, trackFileName,
-                                  bExport, bPlot, bPlotExtra, doBatch, batchWhich, batchParams)
+                                  bExport, bPlot, bPlotExtra, doBatch, paramList)
     runOpenLapSim.run()
