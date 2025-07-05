@@ -99,10 +99,10 @@ class RunOpenLapSim:
             s = BatchSetupFileLoader2(self.setupFilesPath + self.setupFileName, self.paramList)
             s.loadBatchJSON()
 
-            # lapTimeArray = [0] * len(batchParamArray)
+            lapTimeArray = [0] * len(s.setupDictList)
             
             # Run Acceleration Envelope
-            for elem, val in enumerate(batchParamArray):
+            for elem, val in enumerate(s.setupDictList):
                 print(f"elem {elem} -> {s.setupDictList[elem]}")
                 aE = AccEnvCalcBM(s.setupDictList[elem])
                 aE.Run()
@@ -143,7 +143,7 @@ class RunOpenLapSim:
                     pP.plotAccEnvExtra()
                 plt.show()  # plot all figure once at the end
 
-                plt.plot(batchParamArray, lapTimeArray, 'bo')
+                plt.plot(s.setupDictList, lapTimeArray, 'bo')
                 plt.xlabel(f"{batchWhich} (kg)")
                 plt.ylabel("laptime (s)")
                 plt.title(f"{batchWhich} vs laptime")
@@ -238,9 +238,8 @@ if __name__ == '__main__':
 
     # Batch Run (New)
     grid_dict = {
-        'mu':   [1.0, 1.1, 1.2],
+        'gripx':   [1.0, 1.1, 1.2],
         'clt':  [0.5, 1.0],
-        'cx':   [0.30, 0.35]
     }
 
     paramList = make_param_grid(grid_dict) # list of dictionaries
